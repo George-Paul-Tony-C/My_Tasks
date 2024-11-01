@@ -20,7 +20,8 @@ export default async function handler(req, res) {
         priority, // Priority field: High, Medium, Low
         totalTimeSpent: '00:00:00', // Initially zero in hh:mm:ss format
         lastLog: null, // Last log initially null
-        createdAt: new Date(),
+        createdAt: new Date(), // Adding task creation date
+        isCompleted: false, // Default value for task completion status
       });
 
       res.status(201).json({ message: 'Activity created successfully', activityId: result.insertedId });

@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react';
 import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
-import { FaTasks, FaClock, FaCheckCircle, FaPlayCircle } from 'react-icons/fa'; // Icons for task status
+import { FaTasks, FaClock, FaCheckCircle, FaPlayCircle, FaCalendarAlt } from 'react-icons/fa'; // Icons for task status
+import { useDarkMode } from './components/darkmode';
 
 export default function Home() {
   const [tasks, setTasks] = useState([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, toggleDarkMode] = useDarkMode();
   const [loading, setLoading] = useState(true); // Loading state
   const router = useRouter();
 
@@ -32,7 +33,7 @@ export default function Home() {
         <div className="flex justify-end mb-6">
           <button
             className="p-2 rounded-full focus:outline-none transition hover:scale-110 transform"
-            onClick={() => setDarkMode(!darkMode)}
+            onClick={toggleDarkMode}
           >
             {darkMode ? <BsFillSunFill className="text-yellow-400" size={24} /> : <BsMoonStarsFill className="text-blue-500" size={24} />}
           </button>
@@ -64,6 +65,12 @@ export default function Home() {
                 onClick={() => router.push('/form')}
               >
                 Add New Task
+              </button>
+              <button
+                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white text-xl font-semibold px-8 py-4 rounded-full shadow-lg transform transition hover:-translate-y-1"
+                onClick={() => router.push('/calendar')}
+              >
+                <FaCalendarAlt className="inline mr-2" /> View Calendar
               </button>
             </div>
 
@@ -110,7 +117,7 @@ export default function Home() {
                   <FaPlayCircle className="inline mr-2"/> Ongoing Tasks
                 </h2>
                 <p className={`text-4xl font-extrabold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                  {tasks.filter((task) => task.status === 'ongoing').length}
+                  {tasks.filter(task => !task.isCompleted && localStorage.getItem(`task_${task._id}_running`)).length}
                 </p>
               </div>
             </div>
