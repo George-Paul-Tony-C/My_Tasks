@@ -73,7 +73,7 @@ export default function Home() {
       <div className="container mx-auto max-w-screen-xl flex flex-col items-center">
         
         <div className="relative flex flex-col items-center mb-8">
-          <h2 className="text-2xl font-bold mb-4">Today's Completion Rate</h2>
+          <h2 className="text-2xl font-bold mb-4">Todays Completion Rate</h2>
           <div className="relative w-56 h-56">
             <svg className="absolute inset-0 transform transition ease-out duration-1000" viewBox="0 0 160 160">
               <circle

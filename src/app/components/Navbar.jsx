@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDarkMode } from "./DarkModeProvider";
 import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
 import { FaBell, FaUserCircle, FaSearch } from 'react-icons/fa';
+import Link from 'next/link';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useDarkMode();
@@ -24,7 +25,7 @@ export default function Navbar() {
         
         {/* Left Side - Logo and Search Bar */}
         <div className="flex items-center space-x-4">
-          <h1 className="text-2xl font-bold ml-8">My Dashboard</h1>
+          <Link href={'/'}><h1 className="text-2xl font-bold ml-8">My Dashboard</h1></Link>
           
           {/* Search Bar */}
           <div className="relative hidden md:block">
