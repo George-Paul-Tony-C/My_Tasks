@@ -194,7 +194,7 @@ export default function CalendarPage() {
                   key={task._id}
                   className={`relative p-6 rounded-xl shadow-lg transform ${
                     darkMode ? 'bg-gray-800' : 'bg-white'
-                  } ${task.isCompleted[dayIndex] ? 'bg-green-100' : ''}`}
+                  } ${task.isCompleted[dayIndex] ? 'bg-green-100 text-black' : ''}`}
                 >
                   {task.isCompleted[dayIndex] ? (
                     <FaCheckCircle className="absolute top-4 right-4 text-green-600 text-3xl" />

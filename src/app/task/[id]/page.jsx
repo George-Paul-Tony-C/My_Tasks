@@ -1,3 +1,5 @@
+// src/app/task/[id]/page.jsx
+
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -13,10 +15,12 @@ export default function TaskDetail() {
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentDayIndex, setCurrentDayIndex] = useState(-1);
-  const [timeSpent, setTimeSpent] = useState(0);
+  const [timeSpent, setTimeSpent] = useState('00:00:00');
   const [timerRunning, setTimerRunning] = useState(false);
+  const [startTime, setStartTime] = useState(null);
   const timerRef = useRef(null);
 
+  // Helper function to calculate the day index
   const getDayIndex = (task, currentDate) => {
     const createdAt = new Date(task.createdAt);
     const dayDifference = Math.floor(
@@ -31,30 +35,61 @@ export default function TaskDetail() {
       : weekIndex * task.daysOfWeek.length + weekdayIndex;
   };
 
+  // Helper function to add elapsed time to the total time spent
+  const addElapsedTime = (timeSpent = '00:00:00', elapsed = 0) => {
+    const totalSeconds =
+      timeSpent.split(':').reduce((acc, t) => 60 * acc + +t, 0) + elapsed;
+    const hours = Math.floor(totalSeconds / 3600)
+      .toString()
+      .padStart(2, '0');
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+      .toString()
+      .padStart(2, '0');
+    const seconds = Math.floor(totalSeconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
+
+  // Fetch task data on component mount
   useEffect(() => {
     const fetchTask = async () => {
-      const res = await fetch(`/api/tasks/${id}`);
-      const data = await res.json();
-      setTask(data.task);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/tasks/${id}`);
+        const data = await res.json();
+        setTask(data.task);
+        setLoading(false);
 
-      const dayIndex = getDayIndex(data.task, new Date());
-      setCurrentDayIndex(dayIndex);
+        const dayIndex = getDayIndex(data.task, new Date());
+        setCurrentDayIndex(dayIndex);
 
-      if (dayIndex !== -1 && data.task.totalTimeSpent[dayIndex]) {
-        const timeSpentInSeconds = data.task.totalTimeSpent[dayIndex]
-          .split(':')
-          .reduce((acc, time) => 60 * acc + +time, 0);
-        setTimeSpent(timeSpentInSeconds);
+        if (dayIndex !== -1) {
+          let totalTime = data.task.totalTimeSpent[dayIndex] || '00:00:00';
+
+          // If the task is running, calculate the elapsed time since it was started
+          if (data.task.isRunning[dayIndex]) {
+            const elapsedSeconds = Math.floor(
+              (Date.now() - new Date(data.task.startTime).getTime()) / 1000
+            );
+            totalTime = addElapsedTime(totalTime, elapsedSeconds);
+            setTimerRunning(true);
+            setStartTime(new Date(data.task.startTime));
+          }
+
+          setTimeSpent(totalTime);
+        }
+      } catch (error) {
+        console.error('Failed to fetch task:', error);
       }
     };
     fetchTask();
   }, [id]);
 
+  // Update timer every second when running
   useEffect(() => {
     if (timerRunning) {
       timerRef.current = setInterval(() => {
-        setTimeSpent((prevTime) => prevTime + 1);
+        setTimeSpent((prevTime) => addElapsedTime(prevTime, 1));
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -69,43 +104,60 @@ export default function TaskDetail() {
     };
   }, [timerRunning]);
 
-  const handleStart = () => {
+  // Function to handle starting the timer
+  const handleStart = async () => {
     setTimerRunning(true);
-    // TODO: Add code to update task status to running in the backend
+    setStartTime(new Date());
+    await updateTaskStatus('start', currentDayIndex);
   };
 
-  const handlePause = () => {
+  // Function to handle pausing the timer
+  const handlePause = async () => {
     setTimerRunning(false);
-    // TODO: Add code to update task status to paused in the backend
+    await updateTaskStatus('pause', currentDayIndex);
   };
 
-  const handleStop = () => {
+  // Function to handle stopping the timer (mark as completed)
+  const handleStop = async () => {
     setTimerRunning(false);
-    // TODO: Add code to mark task as completed in the backend
+    await updateTaskStatus('complete', currentDayIndex);
   };
 
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600)
-      .toString()
-      .padStart(2, '0');
-    const mins = Math.floor((seconds % 3600) / 60)
-      .toString()
-      .padStart(2, '0');
-    const secs = Math.floor(seconds % 60)
-      .toString()
-      .padStart(2, '0');
-    return `${hrs}:${mins}:${secs}`;
+  // Function to update the task status in the backend
+  const updateTaskStatus = async (action, dayIndex) => {
+    if (dayIndex !== -1) {
+      try {
+        await fetch(`/api/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, dayIndex }),
+        });
+        // Fetch the updated task data
+        const res = await fetch(`/api/tasks/${id}`);
+        const data = await res.json();
+        setTask(data.task);
+      } catch (error) {
+        console.error('Failed to update task status:', error);
+      }
+    }
   };
 
+  // Calculate total duration in seconds
   const totalDurationInSeconds = task
     ? task.activityDuration
         .split(':')
         .reduce((acc, time) => 60 * acc + +time, 0)
     : 0;
 
+  // Calculate time spent in seconds
+  const timeSpentInSeconds = timeSpent
+    ? timeSpent.split(':').reduce((acc, time) => 60 * acc + +time, 0)
+    : 0;
+
+  // Calculate progress percentage
   const progressPercentage =
     totalDurationInSeconds > 0
-      ? Math.min((timeSpent / totalDurationInSeconds) * 100, 100)
+      ? Math.min((timeSpentInSeconds / totalDurationInSeconds) * 100, 100)
       : 0;
 
   return loading ? (
@@ -152,7 +204,7 @@ export default function TaskDetail() {
             <div>
               <p className="text-lg">
                 <span className="font-semibold">Time Spent Today:</span>{' '}
-                {formatTime(timeSpent)}
+                {timeSpent}
               </p>
             </div>
             <div className="flex space-x-2">
@@ -196,7 +248,6 @@ export default function TaskDetail() {
           {/* Additional Task Details */}
           <div className="mt-8">
             <h2 className="text-2xl font-semibold mb-4">Additional Details</h2>
-            {/* You can add more task-specific details here */}
             <p className="text-lg">
               <span className="font-semibold">Created At:</span>{' '}
               {new Date(task.createdAt).toLocaleString()}
