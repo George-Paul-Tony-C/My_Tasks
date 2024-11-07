@@ -1,12 +1,11 @@
-// pages/api/tasks.js
 import clientPromise from '../../src/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Helper function to add elapsed time and check if the task should be marked as completed
-function addElapsedTime(totalTimeSpent, elapsedTimeInSeconds, activityDuration) {
-  const total = totalTimeSpent.split(':').reduce((acc, time) => (60 * acc) + +time); // Convert hh:mm:ss to total seconds
-  const updatedTotal = total + elapsedTimeInSeconds; // Add the new elapsed time
-  const totalDurationInSeconds = activityDuration.split(':').reduce((acc, time) => (60 * acc) + +time); // Convert duration to total seconds
+// Helper function to add elapsed time and check if the task for the day should be completed
+function addElapsedTime(dayTimeSpent, elapsedTimeInSeconds, activityDuration) {
+  const total = dayTimeSpent.split(':').reduce((acc, time) => (60 * acc) + +time);
+  const updatedTotal = total + elapsedTimeInSeconds;
+  const totalDurationInSeconds = activityDuration.split(':').reduce((acc, time) => (60 * acc) + +time);
 
   const isCompleted = updatedTotal >= totalDurationInSeconds;
   const h = Math.floor(updatedTotal / 3600);
@@ -24,83 +23,78 @@ export default async function handler(req, res) {
   const db = client.db('my_personal_website');
 
   if (req.method === 'GET') {
-    // Fetch all tasks and sort by priority (high, medium, low)
     try {
       const tasks = await db.collection('activity').find({}).toArray();
       
-      // Sort tasks based on priority
       const sortedTasks = tasks.sort((a, b) => {
         const priorityOrder = { high: 1, medium: 2, low: 3 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
       });
-      
+
       res.status(200).json({ tasks: sortedTasks });
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   } else if (req.method === 'POST') {
-    const { taskId, action, priority } = req.body;
+    const { taskId, action, dayIndex } = req.body;
 
     try {
       const task = await db.collection('activity').findOne({ _id: new ObjectId(taskId) });
-      if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
-      }
+      if (!task || dayIndex === -1) return res.status(404).json({ error: 'Invalid task or day index' });
 
-      // Handle 'updatePriority' action
       if (action === 'updatePriority') {
         await db.collection('activity').updateOne(
           { _id: new ObjectId(taskId) },
-          { $set: { priority } }
+          { $set: { priority: req.body.priority } }
         );
-        res.status(200).json({ message: 'Task priority updated', priority });
+        res.status(200).json({ message: 'Task priority updated', priority: req.body.priority });
       }
 
-      // Handle 'complete' action
       else if (action === 'complete') {
+        task.isCompleted[dayIndex] = true;
         await db.collection('activity').updateOne(
           { _id: new ObjectId(taskId) },
-          { $set: { isRunning: false, isCompleted: true } }
+          { $set: { isCompleted: task.isCompleted } }
         );
-        res.status(200).json({ message: 'Task marked as completed' });
+        res.status(200).json({ message: 'Task marked as completed for the specified day', dayIndex });
       }
 
-      // Handle 'start' action
       else if (action === 'start') {
+        task.isRunning[dayIndex] = true;
         await db.collection('activity').updateOne(
           { _id: new ObjectId(taskId) },
           {
-            $set: { isRunning: true, startTime: new Date() }
+            $set: { isRunning: task.isRunning, startTime: new Date() }
           }
         );
-        res.status(200).json({ message: 'Task started' });
+        res.status(200).json({ message: 'Task started for specified day' });
       }
 
-      // Handle 'pause' action
       else if (action === 'pause') {
         const now = new Date().getTime();
         const startTime = new Date(task.startTime).getTime();
         const elapsedTime = Math.floor((now - startTime) / 1000); // Elapsed time in seconds
 
-        const { timeSpent, isCompleted } = addElapsedTime(task.totalTimeSpent, elapsedTime, task.activityDuration);
+        const { timeSpent, isCompleted } = addElapsedTime(task.totalTimeSpent[dayIndex], elapsedTime, task.activityDuration);
 
-        // Update the task, marking it as complete if it exceeds the duration
+        task.totalTimeSpent[dayIndex] = timeSpent;
+        task.isCompleted[dayIndex] = isCompleted;
+        task.isRunning[dayIndex] = false;
+
         await db.collection('activity').updateOne(
           { _id: new ObjectId(taskId) },
           {
             $set: {
-              isRunning: false,
-              totalTimeSpent: timeSpent,
-              startTime: null,
-              isCompleted: isCompleted
+              isRunning: task.isRunning,
+              totalTimeSpent: task.totalTimeSpent,
+              isCompleted: task.isCompleted,
             }
           }
         );
-        res.status(200).json({ message: 'Task paused', totalTimeSpent: timeSpent, isCompleted });
+        res.status(200).json({ message: 'Task paused for specified day', totalTimeSpent: timeSpent, isCompleted });
       }
 
-      // Invalid action handling
       else {
         res.status(400).json({ error: 'Invalid action' });
       }
@@ -109,7 +103,7 @@ export default async function handler(req, res) {
       res.status(500).json({ error: 'Failed to update task' });
     }
   } 
-  // Handle DELETE request to delete a task
+
   else if (req.method === 'DELETE') {
     const { taskId } = req.body;
 

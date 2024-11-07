@@ -47,3 +47,25 @@ body {
   visibility: visible;
   opacity: 1;
 }
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-geist-sans);
+}
+
+#root {
+  display: flex;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  padding: 2rem;
+}

@@ -11,17 +11,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    // Calculate the number of days and initialize arrays
+    const daysCount = weeks * daysOfWeek.length;
+    const totalTimeSpent = Array(daysCount).fill('00:00:00'); // Track time for each day
+    const isCompleted = Array(daysCount).fill(false); // Track completion for each day
+    const isRunning = Array(daysCount).fill(false); // Track running status for each day
+
     try {
       const result = await db.collection('activity').insertOne({
         activityName,
-        activityDuration, // Storing duration in hh:mm:ss format
+        activityDuration, // Duration in hh:mm:ss
         weeks, // Number of weeks
-        daysOfWeek, // Array of selected days (e.g., ['Monday', 'Wednesday', 'Friday'])
-        priority, // Priority field: High, Medium, Low
-        totalTimeSpent: '00:00:00', // Initially zero in hh:mm:ss format
-        lastLog: null, // Last log initially null
-        createdAt: new Date(), // Adding task creation date
-        isCompleted: false, // Default value for task completion status
+        daysOfWeek, // Array of days
+        priority, // Priority: High, Medium, Low
+        totalTimeSpent,
+        isCompleted,
+        isRunning,
+        createdAt: new Date(), // Task creation date
       });
 
       res.status(201).json({ message: 'Activity created successfully', activityId: result.insertedId });

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { toast, Toaster } from 'react-hot-toast';
 import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
 import { FaExclamationCircle, FaExclamationTriangle, FaFlag } from 'react-icons/fa';
-import { useDarkMode } from '../components/darkmode';
+import { useDarkMode } from '../components/DarkModeProvider';
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function CreateActivity() {
@@ -16,7 +16,7 @@ export default function CreateActivity() {
   const [daysOfWeek, setDaysOfWeek] = useState([]);
   const [priority, setPriority] = useState('medium');
   const [hydrated, setHydrated] = useState(false);
-  const [darkMode, toggleDarkMode] = useDarkMode();
+  const { darkMode } = useDarkMode(); 
   const router = useRouter();
 
   useEffect(() => {
@@ -74,6 +74,8 @@ export default function CreateActivity() {
 
   if (!hydrated) return null;
 
+  
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -88,15 +90,6 @@ export default function CreateActivity() {
         transition={{ duration: 0.5, type: 'spring' }}
         className="w-full max-w-4xl p-10 mt-10 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-800 transition duration-500"
       >
-        <div className="flex justify-end mb-4">
-          <motion.button
-            whileHover={{ rotate: 360 }}
-            onClick={toggleDarkMode}
-            className="text-2xl"
-          >
-            {darkMode ? <BsFillSunFill className="text-yellow-400" /> : <BsMoonStarsFill className="text-blue-500" />}
-          </motion.button>
-        </div>
         <motion.h1
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
