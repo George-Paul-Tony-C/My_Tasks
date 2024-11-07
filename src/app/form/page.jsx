@@ -88,7 +88,7 @@ export default function CreateActivity() {
         initial={{ scale: 0.9 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, type: 'spring' }}
-        className="w-full max-w-4xl p-10 mt-10 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-800 transition duration-500"
+        className="w-full max-w-xl p-10 mt-10 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-800 transition duration-500"
       >
         <motion.h1
           initial={{ y: -20, opacity: 0 }}

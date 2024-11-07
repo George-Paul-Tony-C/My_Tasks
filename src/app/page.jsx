@@ -317,18 +317,16 @@ export default function Home() {
               <Calendar
                 onChange={setDate}
                 value={date}
-                className={`${
-                  darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'
-                } rounded-lg`}
-                tileClassName={({ date, view }) => {
-                  if (
-                    tasks.some(
-                      (task) => getDayIndex(task, date) !== -1 && view === 'month'
-                    )
-                  ) {
-                    return 'bg-green-200';
-                  }
-                }}
+                className={`${darkMode ? 'text-black' : 'text-gray-800'} rounded`}
+                // tileClassName={({ date, view }) => {
+                //   if (
+                //     tasks.some(
+                //       (task) => getDayIndex(task, date) !== -1 && view === 'month'
+                //     )
+                //   ) {
+                //     return 'bg-green-200';
+                //   }
+                // }}
               />
             </motion.div>
 
