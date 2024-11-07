@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useDarkMode } from '../components/DarkModeProvider';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const addElapsedTime = (timeSpent = '00:00:00', elapsed = 0) => {
   const total =
@@ -109,7 +110,6 @@ export default function CalendarPage() {
   };
 
   const deleteTask = async (taskId) => {
-    toast.info('Deleting task...', { autoClose: 1000 });
     await fetch(`/api/tasks`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -125,13 +125,7 @@ export default function CalendarPage() {
   
 
   return loading ? (
-    <motion.div
-      className="flex justify-center items-center h-screen"
-      animate={{ rotate: 360 }}
-      transition={{ repeat: Infinity, duration: 1 }}
-    >
-      <div className="loader border-t-4 border-blue-500 border-solid rounded-full w-16 h-16"></div>
-    </motion.div>
+    <LoadingSpinner/>
   ) : (
     <div
       className={`${

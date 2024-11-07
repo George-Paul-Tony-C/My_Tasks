@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDarkMode } from "./DarkModeProvider";
 import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
 import { FaBell, FaUserCircle, FaSearch } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useDarkMode();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setHasMounted(true); // Indicate that the component is fully mounted on the client
@@ -25,7 +27,7 @@ export default function Navbar() {
         
         {/* Left Side - Logo and Search Bar */}
         <div className="flex items-center space-x-4">
-          <Link href={'/'}><h1 className="text-2xl font-bold ml-8">My Dashboard</h1></Link>
+          <Link href={'/'}><h1 className="text-2xl font-bold ml-8">My Personal Assistant</h1></Link>
           
           {/* Search Bar */}
           <div className="relative hidden md:block">
@@ -72,10 +74,10 @@ export default function Navbar() {
                   exit={{ opacity: 0, y: -10 }}
                   className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg z-20 py-2"
                 >
-                  <button className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <button onClick={() => router.push('/profile')} className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Profile
                   </button>
-                  <button className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <button onClick={() => router.push('/settings')} className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Settings
                   </button>
                   <button className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
