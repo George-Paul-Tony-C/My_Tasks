@@ -1,282 +1,178 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { Tooltip } from 'react-tooltip';
-import LoadingSpinner from '../components/LoadingSpinner';
-import TaskModal from '../components/TaskModal';
+import { FaChevronLeft, FaChevronRight, FaCheckCircle, FaPlay, FaPause, FaTrash } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { useDarkMode } from '../components/darkmode';
+import TaskModal from '../components/TaskModal';
 
-const priorityColors = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-green-500',
+const addElapsedTime = (timeSpent = "00:00:00", elapsed = 0) => {
+  const total = timeSpent.split(':').reduce((acc, t) => 60 * acc + +t, 0) + elapsed;
+  return new Date(total * 1000).toISOString().substr(11, 8);
 };
 
 export default function CalendarPage() {
-    const [darkMode, toggleDarkMode] = useDarkMode();
+  const [darkMode, toggleDarkMode] = useDarkMode();
   const [loading, setLoading] = useState(true);
-  const [calendarDays, setCalendarDays] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [tasks, setTasks] = useState([]);
+  const [currentDay, setCurrentDay] = useState(new Date());
   const [selectedTask, setSelectedTask] = useState(null);
-  const [priorityFilter, setPriorityFilter] = useState('all'); // Priority filter
-  const [startDateFilter, setStartDateFilter] = useState(null);
-  const [endDateFilter, setEndDateFilter] = useState(null);
-  const today = new Date();
 
+  // Fetch tasks initially
   useEffect(() => {
+    const fetchTasks = async () => {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      const updatedTasks = data.tasks.map(task => 
+        task.isRunning 
+          ? { ...task, totalTimeSpent: addElapsedTime(task.totalTimeSpent, Math.floor((Date.now() - new Date(task.startTime).getTime()) / 1000)) } 
+          : task
+      );
+      setTasks(updatedTasks);
+      setLoading(false);
+    };
     fetchTasks();
   }, []);
 
+  // Real-time timer update for running tasks
   useEffect(() => {
-    if (!loading && tasks.length >= 0) {
-      generateCalendar(currentMonth, currentYear);
-    }
-  }, [currentMonth, currentYear, tasks, loading]);
+    const interval = setInterval(() => {
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.isRunning 
+            ? { ...task, totalTimeSpent: addElapsedTime(task.totalTimeSpent, 1) } 
+            : task
+        )
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      setTasks(data.tasks || []);
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-      setLoading(false);
-    }
-  };
-
-  const daysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-
-  const prevMonth = () => {
-    setCurrentMonth((prev) => (prev === 0 ? 11 : prev - 1));
-    setCurrentYear((prev) => (currentMonth === 0 ? prev - 1 : prev));
-  };
-
-  const nextMonth = () => {
-    setCurrentMonth((prev) => (prev === 11 ? 0 : prev + 1));
-    setCurrentYear((prev) => (currentMonth === 11 ? prev + 1 : prev));
-  };
-
-  const generateCalendar = (month, year) => {
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const daysInCurrentMonth = daysInMonth(month, year);
-    const weeksArray = [];
-
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      weeksArray.push(null);
-    }
-
-    for (let i = 1; i <= daysInCurrentMonth; i++) {
-      weeksArray.push(new Date(year, month, i));
-    }
-
-    setCalendarDays(weeksArray);
-  };
-
-  const filterTasks = (tasks) => {
-    return tasks.filter((task) => {
-      const taskDate = new Date(task.createdAt);
-      const withinPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-      const withinStart = startDateFilter ? taskDate >= new Date(startDateFilter) : true;
-      const withinEnd = endDateFilter ? taskDate <= new Date(endDateFilter) : true;
-      return withinPriority && withinStart && withinEnd;
+  const updateTaskStatus = async (taskId, action) => {
+    await fetch(`/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, action })
     });
+    const res = await fetch('/api/tasks');
+    const data = await res.json();
+    setTasks(data.tasks);
   };
 
-  const getTaskForDay = (day) => {
-    const filteredTasks = filterTasks(tasks);
-    return filteredTasks.filter((task) => {
-      const allocatedDays = task.daysOfWeek || [];
-      if (!day || allocatedDays.length === 0) return false;
+  const toggleTaskTimer = (task) => 
+    task.isRunning ? updateTaskStatus(task._id, 'pause') : updateTaskStatus(task._id, 'start');
 
-      const dayOfWeekName = day.toLocaleString('en-US', { weekday: 'long' });
-      const isTaskDay = allocatedDays.includes(dayOfWeekName);
-
-      const startDate = new Date(task.createdAt);
-      const weekDifference = Math.floor((day - startDate) / (7 * 24 * 60 * 60 * 1000));
-
-      const withinWeeksLimit = weekDifference >= 0 && weekDifference < parseInt(task.weeks, 10);
-      const notBeforeStartDate = day >= startDate;
-
-      return isTaskDay && withinWeeksLimit && notBeforeStartDate;
+  const deleteTask = async (taskId) => {
+    toast.info("Deleting task...", { autoClose: 1000 });
+    await fetch(`/api/tasks`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId })
     });
+    setTasks(tasks.filter(task => task._id !== taskId));
+    toast.success("Task deleted successfully!");
   };
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Check if tasks are defined to avoid filter error
+  const filteredTasksForDay = tasks ? tasks.filter(task => {
+    const createdAt = new Date(task.createdAt);
+    const dayDifference = Math.floor((currentDay - createdAt) / (7 * 24 * 60 * 60 * 1000));
+    return task.daysOfWeek.includes(currentDay.toLocaleDateString('en-US', { weekday: 'long' })) && dayDifference < parseInt(task.weeks);
+  }) : [];
 
-  const isToday = (day) => {
-    return (
-      day &&
-      day.getDate() === today.getDate() &&
-      day.getMonth() === today.getMonth() &&
-      day.getFullYear() === today.getFullYear()
-    );
+  const animateButton = {
+    whileHover: { scale: 1.1 },
+    whileTap: { scale: 0.95 }
   };
 
-  const handleUpdateTask = (updatedTask) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) => (task._id === updatedTask._id ? updatedTask : task))
-    );
-    setSelectedTask(null);
-  };
+  return loading ? (
+    <motion.div className="flex justify-center items-center h-screen" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
+      <div className="loader border-t-4 border-blue-500 border-solid rounded-full w-16 h-16"></div>
+    </motion.div>
+  ) : (
+    <div className={`${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} min-h-screen transition duration-500`}>
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+      <div className="container mx-auto p-6 min-h-screen space-y-6">
+        <motion.button {...animateButton} onClick={toggleDarkMode} className="absolute top-4 right-4 p-3 rounded-full text-2xl">
+          {darkMode ? <BsFillSunFill className="text-yellow-400" /> : <BsMoonStarsFill className="text-blue-500" />}
+        </motion.button>
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+        <motion.h1 className="text-4xl font-extrabold text-center mb-6" initial={{ opacity: 0 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          Daily Task Calendar
+        </motion.h1>
 
-  return (
-    <div
-      className={`${
-        darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'
-      } min-h-screen transition duration-500`}
-    >
-      <div className="container mx-auto p-4 sm:p-8 min-h-screen">
-        <div className="flex justify-end mb-4 sm:mb-6">
-          <button
-            className="p-2 rounded-full focus:outline-none transition hover:scale-110 transform"
-            onClick={toggleDarkMode}
-          >
-            {darkMode ? (
-              <BsFillSunFill className="text-yellow-400" size={24} />
-            ) : (
-              <BsMoonStarsFill className="text-blue-500" size={24} />
-            )}
-          </button>
-        </div>
-
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-center mb-6 sm:mb-12">
-          Real-Time Calendar
-        </h1>
-
-        {/* Filters */}
-        <div className="flex justify-between mb-6 items-center">
-          {/* Priority Filter */}
-          <div>
-            <label className="mr-2">Priority:</label>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="border p-1 rounded text-gray-700"
-            >
-              <option value="all">All</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-
-          {/* Date Range Filter */}
-          <div className="flex space-x-2 items-center">
-            <div>
-              <label className="mr-1">From:</label>
-              <input
-                type="date"
-                value={startDateFilter || ''}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-                className="border p-1 rounded text-gray-700"
-              />
-            </div>
-            <div>
-              <label className="mr-1">To:</label>
-              <input
-                type="date"
-                value={endDateFilter || ''}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-                className="border p-1 rounded text-gray-700"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <button
-            onClick={prevMonth}
-            className="text-lg p-2 bg-gray-300 hover:bg-gray-400 rounded-full transition-all hover:scale-110 shadow-lg hover:shadow-xl"
-          >
+        <div className="flex justify-between items-center mb-6">
+          <motion.button {...animateButton} onClick={() => setCurrentDay(new Date(currentDay.setDate(currentDay.getDate() - 1)))}>
             <FaChevronLeft size={24} />
-          </button>
-          <h2 className="text-xl sm:text-3xl font-semibold transition duration-300">
-            {new Date(currentYear, currentMonth).toLocaleString('default', {
-              month: 'long',
-            })}{' '}
-            {currentYear}
+          </motion.button>
+          <h2 className="text-xl font-semibold">
+            {currentDay.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </h2>
-          <button
-            onClick={nextMonth}
-            className="text-lg p-2 bg-gray-300 hover:bg-gray-400 rounded-full transition-all hover:scale-110 shadow-lg hover:shadow-xl"
-          >
+          <motion.button {...animateButton} onClick={() => setCurrentDay(new Date(currentDay.setDate(currentDay.getDate() + 1)))}>
             <FaChevronRight size={24} />
-          </button>
+          </motion.button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 sm:gap-4">
-          {calendarDays.length === 0 ? (
-            <p className="text-center col-span-7 text-gray-500">
-              No tasks for this month. Create new tasks to get started!
-            </p>
-          ) : (
-            calendarDays.map((day, index) => {
-              const tasksForDay = getTaskForDay(day);
-              const isCurrentMonthDay = day && day.getMonth() === currentMonth;
+        {filteredTasksForDay.length === 0 ? (
+          <p className="text-center text-gray-500">No tasks for today. Create new tasks to get started!</p>
+        ) : (
+          <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredTasksForDay.map(task => (
+              <motion.div
+                key={task._id}
+                className={`relative p-6 rounded-xl shadow-lg transform ${darkMode ? 'bg-gray-800' : 'bg-white'} ${
+                  task.isCompleted ? 'bg-green-100 text-black' : ''
+                }`}
+                whileHover={{ scale: 1.03 }}
+              >
+                {task.isCompleted ? (
+                  <FaCheckCircle className="absolute top-4 right-4 text-green-600 text-3xl" />
+                ) : task.isRunning ? (
+                  <FaPlay className="absolute top-4 right-4 text-blue-600 text-3xl" />
+                ) : (
+                  <FaPause className="absolute top-4 right-4 text-yellow-600 text-3xl" />
+                )}
 
-              return (
-                <div
-                  key={index}
-                  className={`relative p-2 sm:p-4 rounded-lg shadow-md transition-transform transform hover:scale-105 duration-300 hover:shadow-xl ${
-                    isToday(day)
-                      ? 'bg-blue-500 text-white'
-                      : darkMode
-                      ? 'bg-gray-800 border-gray-700'
-                      : 'bg-white border-gray-300'
-                  } border ${!isCurrentMonthDay ? 'opacity-50' : ''}`}
-                >
-                  <h2 className="text-md sm:text-lg font-bold mb-1 sm:mb-2 transition duration-300">
-                    {day ? day.getDate() : ''}
-                  </h2>
-                  <div className="space-y-1 sm:space-y-2">
-                    {isCurrentMonthDay ? (
-                      tasksForDay.length > 0 ? (
-                        tasksForDay.map((task) => (
-                          <div
-                            key={task._id}
-                            className={`text-xs sm:text-sm px-2 py-1 rounded-full text-white cursor-pointer ${priorityColors[task.priority]}`}
-                            onClick={() => setSelectedTask(task)} // Set selected task to open modal
-                          >
-                            {task.activityName}
-                            <Tooltip id={`task-tooltip-${task._id}`} place="top" effect="solid">
-                              <div>
-                                <p><strong>Task:</strong> {task.activityName}</p>
-                                <p><strong>Duration:</strong> {task.activityDuration}</p>
-                                <p><strong>Priority:</strong> {task.priority}</p>
-                              </div>
-                            </Tooltip>
-                          </div>
-                        ))
-                      ) : (
-                        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No tasks</p>
-                      )
-                    ) : null}
-                  </div>
+                <h2 className="text-2xl font-bold mb-2">{task.activityName}</h2>
+                <p>Priority: <span className="font-semibold">{task.priority}</span></p>
+                <p>Total Time: <span className="font-semibold text-blue-600">{task.totalTimeSpent}</span></p>
+                <p>Duration: <span className="font-semibold text-green-600">{task.activityDuration}</span></p>
+
+                <div className="relative h-4 mt-4 bg-gray-300 rounded-full overflow-hidden">
+                  <motion.div
+                    className="absolute h-4 bg-gradient-to-r from-green-400 to-green-600 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(task.totalTimeSpent.split(':').reduce((a, b) => 60 * a + +b) / task.activityDuration.split(':').reduce((a, b) => 60 * a + +b)) * 100}%` }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
 
-      {/* Render TaskModal when a task is selected */}
-      {selectedTask && (
-        <TaskModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdateTask={handleUpdateTask}
-        />
-      )}
+                <motion.button
+                  {...animateButton}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full shadow-md mt-4 flex items-center gap-2"
+                  onClick={() => deleteTask(task._id)}
+                >
+                  <FaTrash /> Delete
+                </motion.button>
+
+                {!task.isCompleted && (
+                  <motion.button
+                    {...animateButton}
+                    className={`mt-4 px-4 py-2 rounded-full shadow-md text-white ${task.isRunning ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
+                    onClick={() => toggleTaskTimer(task)}
+                  >
+                    {task.isRunning ? 'Pause' : task.totalTimeSpent !== '00:00:00' ? 'Resume' : 'Start'}
+                  </motion.button>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {selectedTask && <TaskModal task={selectedTask} onClose={() => setSelectedTask(null)} />}
+      </div>
     </div>
   );
 }
-
