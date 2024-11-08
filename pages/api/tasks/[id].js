@@ -1,29 +1,40 @@
-// src/pages/api/tasks/[id].js
-
 import clientPromise from '../../../src/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Helper function to parse time strings to seconds
+const timeStringToSeconds = (timeString) =>
+  timeString.split(':').reduce((acc, time) => 60 * acc + +time, 0);
+
+// Helper function to format seconds to time string
+const secondsToTimeString = (totalSeconds) => {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m
+    .toString()
+    .padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
 // Helper function to add elapsed time and check if the task for the day should be completed
 function addElapsedTime(dayTimeSpent, elapsedTimeInSeconds, activityDuration) {
-  const total = dayTimeSpent.split(':').reduce((acc, time) => 60 * acc + +time, 0);
+  const total = timeStringToSeconds(dayTimeSpent);
   const updatedTotal = total + elapsedTimeInSeconds;
-  const totalDurationInSeconds = activityDuration.split(':').reduce((acc, time) => 60 * acc + +time, 0);
+  const totalDurationInSeconds = timeStringToSeconds(activityDuration);
 
   const isCompleted = updatedTotal >= totalDurationInSeconds;
-  const h = Math.floor(updatedTotal / 3600);
-  const m = Math.floor((updatedTotal % 3600) / 60);
-  const s = updatedTotal % 60;
+  const timeSpent = secondsToTimeString(updatedTotal);
 
-  return {
-    timeSpent: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`,
-    isCompleted,
-  };
+  return { timeSpent, isCompleted };
 }
 
 export default async function handler(req, res) {
   const client = await clientPromise;
   const db = client.db('my_personal_website');
   const { id } = req.query;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
 
   if (req.method === 'GET') {
     try {
@@ -41,27 +52,30 @@ export default async function handler(req, res) {
 
     try {
       const task = await db.collection('activity').findOne({ _id: new ObjectId(id) });
-      if (!task || dayIndex === undefined) return res.status(404).json({ error: 'Invalid task or day index' });
+      if (!task || dayIndex === undefined)
+        return res.status(404).json({ error: 'Invalid task or day index' });
 
       if (action === 'updatePriority') {
-        await db.collection('activity').updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { priority: priority } }
-        );
+        await db
+          .collection('activity')
+          .updateOne({ _id: new ObjectId(id) }, { $set: { priority } });
         res.status(200).json({ message: 'Task priority updated', priority });
       } else if (action === 'complete') {
         task.isCompleted[dayIndex] = true;
-        await db.collection('activity').updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { isCompleted: task.isCompleted } }
-        );
-        res.status(200).json({ message: 'Task marked as completed for the specified day', dayIndex });
+        await db
+          .collection('activity')
+          .updateOne({ _id: new ObjectId(id) }, { $set: { isCompleted: task.isCompleted } });
+        res
+          .status(200)
+          .json({ message: 'Task marked as completed for the specified day', dayIndex });
       } else if (action === 'start') {
         task.isRunning[dayIndex] = true;
-        await db.collection('activity').updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { isRunning: task.isRunning, startTime: new Date() } }
-        );
+        await db
+          .collection('activity')
+          .updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { isRunning: task.isRunning, startTime: new Date() } }
+          );
         res.status(200).json({ message: 'Task started for specified day' });
       } else if (action === 'pause') {
         const now = new Date().getTime();
@@ -88,7 +102,9 @@ export default async function handler(req, res) {
             },
           }
         );
-        res.status(200).json({ message: 'Task paused for specified day', totalTimeSpent: timeSpent, isCompleted });
+        res
+          .status(200)
+          .json({ message: 'Task paused for specified day', totalTimeSpent: timeSpent, isCompleted });
       } else {
         res.status(400).json({ error: 'Invalid action' });
       }

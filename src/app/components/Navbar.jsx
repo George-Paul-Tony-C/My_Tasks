@@ -1,60 +1,74 @@
-// Navbar.jsx
-
-'use client';
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useDarkMode } from './DarkModeProvider';
-import { BsFillSunFill, BsMoonStarsFill } from 'react-icons/bs';
-import { FaBell, FaUserCircle, FaSearch } from 'react-icons/fa';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+"use client";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useDarkMode } from "./DarkModeProvider";
+import {
+  BsFillSunFill,
+  BsMoonStarsFill,
+  BsBellFill,
+  BsFillPersonFill,
+  BsSearch,
+} from "react-icons/bs";
+import { FaTasks } from "react-icons/fa"; // Ensure FaTasks is imported
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useDarkMode();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false); // Added
-  const [notifications, setNotifications] = useState([]); // Added
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [hasMounted, setHasMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    setHasMounted(true); // Indicate that the component is fully mounted on the client
+    setHasMounted(true);
   }, []);
 
   useEffect(() => {
-    // Fetch notifications
+    // Fetch notifications (Mock data for example)
     const fetchNotifications = async () => {
-      try {
-        const res = await fetch('/api/notifications');
-        if (res.ok) {
-          const data = await res.json();
-          setNotifications(data.notifications);
-        } else {
-          console.error('Failed to fetch notifications');
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
+      // Mock notifications
+      const data = {
+        notifications: [
+          {
+            id: 1,
+            message: "You have a meeting at 3 PM",
+            date: new Date(),
+            link: "/calendar",
+          },
+          {
+            id: 2,
+            message: "Task 'Design Review' is due tomorrow",
+            date: new Date(),
+            link: "/tasks",
+          },
+        ],
+      };
+      setNotifications(data.notifications);
     };
     fetchNotifications();
   }, []);
 
   const toggleProfileDropdown = () => setIsProfileOpen(!isProfileOpen);
-  const toggleNotificationsDropdown = () => setIsNotificationsOpen(!isNotificationsOpen); // Added
+  const toggleNotificationsDropdown = () =>
+    setIsNotificationsOpen(!isNotificationsOpen);
 
-  if (!hasMounted) return null; // Avoid rendering until after mount
+  if (!hasMounted) return null;
 
   return (
     <nav
       className={`${
-        darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'
-      } shadow-md py-4 px-8 pl-16 transition-colors`}
+        darkMode ? "bg-gray-900 text-gray-100" : "bg-white text-gray-800"
+      } shadow-2xl py-4 px-8 transition-colors fixed top-0 left-0 right-0 z-20`}
     >
       <div className="flex justify-between items-center">
         {/* Left Side - Logo and Search Bar */}
         <div className="flex items-center space-x-4">
-          <Link href={'/'}>
-            <h1 className="text-2xl font-bold ml-8">My Personal Assistant</h1>
+          <Link href={"/"}>
+            <div className="flex items-center space-x-2 cursor-pointer ml-10">
+              <h1 className="text-2xl font-bold">My Assistant</h1>
+            </div>
           </Link>
 
           {/* Search Bar */}
@@ -62,9 +76,9 @@ export default function Navbar() {
             <input
               type="text"
               placeholder="Search..."
-              className="bg-gray-200 dark:bg-gray-700 rounded-full px-4 py-1.5 pl-10 focus:outline-none transition-all"
+              className="bg-gray-200 dark:bg-gray-800 rounded-full px-4 py-1.5 pl-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
+            <BsSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           </div>
         </div>
 
@@ -88,7 +102,7 @@ export default function Navbar() {
               onClick={toggleNotificationsDropdown}
               className="relative p-2 rounded-full focus:outline-none hover:bg-gray-200 dark:hover:bg-gray-700 transition"
             >
-              <FaBell size={20} />
+              <BsBellFill size={22} />
               {notifications.length > 0 && (
                 <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
                   {notifications.length}
@@ -103,19 +117,19 @@ export default function Navbar() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className={`absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 shadow-lg rounded-lg z-20 py-2`}
+                  className={`absolute right-0 mt-2 w-80 ${
+                    darkMode ? "bg-gray-900" : "bg-white"
+                  } shadow-lg rounded-lg z-20 py-2`}
                 >
                   {notifications.length > 0 ? (
                     <ul>
                       {notifications.map((notification) => (
                         <li
                           key={notification.id}
-                          className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                           onClick={() => {
-                            // Handle notification click
                             router.push(notification.link);
-                            // Optionally mark notification as read
-                            // TODO: Implement mark as read
+                            setIsNotificationsOpen(false);
                           }}
                         >
                           <p className="text-sm">{notification.message}</p>
@@ -141,7 +155,7 @@ export default function Navbar() {
               onClick={toggleProfileDropdown}
               className="flex items-center space-x-2 focus:outline-none"
             >
-              <FaUserCircle size={28} />
+              <BsFillPersonFill size={28} />
             </button>
 
             {/* Profile Dropdown */}
@@ -151,21 +165,35 @@ export default function Navbar() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg z-20 py-2"
+                  className={`absolute right-0 mt-2 w-48 ${
+                    darkMode ? "bg-gray-900" : "bg-white"
+                  } shadow-lg rounded-lg z-20 py-2`}
                 >
                   <button
-                    onClick={() => router.push('/profile')}
-                    className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      router.push("/profile");
+                      setIsProfileOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
                     Profile
                   </button>
                   <button
-                    onClick={() => router.push('/settings')}
-                    className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      router.push("/settings");
+                      setIsProfileOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
                     Settings
                   </button>
-                  <button className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <button
+                    onClick={() => {
+                      router.push("/logout");
+                      setIsProfileOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
                     Logout
                   </button>
                 </motion.div>
